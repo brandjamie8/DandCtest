@@ -47,6 +47,7 @@ def login():
             st.session_state['logged_in'] = True
             st.session_state['username'] = username
             st.sidebar.success(f"Logged in as {username}")
+            st.experimental_rerun()
         else:
             st.sidebar.error("Invalid username or password")
 
