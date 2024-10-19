@@ -1,0 +1,10 @@
+streamlit
+pandas
+plotly
+statsmodels
+prophet
+sklearn
+bcrypt
+pyodbc
+sqlalchemy
+reportlab
