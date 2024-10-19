@@ -247,7 +247,8 @@ else:
 
                         # Store the metrics
                                 metrics['Prophet'] = {'AIC': None, 'BIC': None, 'RMSE': rmse}
-
+                        except Exception as e:
+                                st.error(f"Error loading data: {e}")
                     except Exception as e:
                         model_errors[model_name] = str(e)
                         st.warning(f"Model {model_name} encountered an error: {e}")
