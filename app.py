@@ -213,40 +213,40 @@ else:
                             rmse = np.sqrt(mean_squared_error(es_series[-periods:], model_fit.fittedvalues[-periods:]))
                             metrics['Exponential Smoothing'] = {'AIC': aic, 'BIC': bic, 'RMSE': rmse}
 
-                elif model_name == "Prophet":
-                    try:
-                        # Updated Prophet code as above
-                        # Split data into training and test sets
-                        train_size = int(len(demand_series) * 0.8)
-                        train_data = demand_series.iloc[:train_size]
-                        test_data = demand_series.iloc[train_size:]
+                        elif model_name == "Prophet":
+                            try:
+                                # Updated Prophet code as above
+                                # Split data into training and test sets
+                                train_size = int(len(demand_series) * 0.8)
+                                train_data = demand_series.iloc[:train_size]
+                                test_data = demand_series.iloc[train_size:]
 
-                        # Fit the Prophet model on training data
-                        m = Prophet()
-                        m.fit(train_data)
+                                # Fit the Prophet model on training data
+                                m = Prophet()
+                                m.fit(train_data)
 
-                        # Make predictions on test data
-                        future = m.make_future_dataframe(periods=len(test_data), freq='D')
-                        forecast = m.predict(future)
+                                # Make predictions on test data
+                                future = m.make_future_dataframe(periods=len(test_data), freq='D')
+                                forecast = m.predict(future)
 
-                        # Get the predictions for the test period
-                        forecast_test = forecast.iloc[train_size:]
+                                # Get the predictions for the test period
+                                forecast_test = forecast.iloc[train_size:]
 
                         # Compute RMSE
-                        y_true = test_data['y'].values
-                        y_pred = forecast_test['yhat'].values
-                        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+                                y_true = test_data['y'].values
+                                y_pred = forecast_test['yhat'].values
+                                rmse = np.sqrt(mean_squared_error(y_true, y_pred))
 
                         # Store the forecast for the specified future periods
-                        future_periods = periods
-                        future_dates = m.make_future_dataframe(periods=future_periods)
-                        forecast_full = m.predict(future_dates)
-                        forecast_result = forecast_full[['ds', 'yhat']].tail(periods)
-                        forecast_result.columns = ['ds', 'y']
-                        results['Prophet'] = forecast_result
+                                future_periods = periods
+                                future_dates = m.make_future_dataframe(periods=future_periods)
+                                forecast_full = m.predict(future_dates)
+                                forecast_result = forecast_full[['ds', 'yhat']].tail(periods)
+                                forecast_result.columns = ['ds', 'y']
+                                results['Prophet'] = forecast_result
 
                         # Store the metrics
-                        metrics['Prophet'] = {'AIC': None, 'BIC': None, 'RMSE': rmse}
+                                metrics['Prophet'] = {'AIC': None, 'BIC': None, 'RMSE': rmse}
 
                     except Exception as e:
                         model_errors[model_name] = str(e)
