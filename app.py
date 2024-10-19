@@ -246,6 +246,7 @@ else:
                     st.success(f"The best model based on AIC is: {best_model}")
 
                     st.session_state['forecast'] = results[best_model]
+                    st.session_state['best_model'] = best_model    
 
                     # Plot Forecast
                     st.subheader("Forecasted Demand")
@@ -314,6 +315,7 @@ else:
                 p.drawString(1 * inch, height - 2.5 * inch, "Summary:")
                 p.setFont("Helvetica", 12)
                 text = p.beginText(1 * inch, height - 2.8 * inch)
+                best_model = st.session_state.get('best_model', 'N/A')
                 summary = f"This report provides a detailed analysis of the hospital's demand forecasts and capacity planning. The best forecasting model was determined to be {best_model} based on the evaluation metrics."
                 for line in summary.split('\n'):
                     text.textLine(line)
