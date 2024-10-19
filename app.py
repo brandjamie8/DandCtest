@@ -19,6 +19,10 @@ from sqlalchemy import create_engine
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
+import warnings
+
+# Suppress warnings
+warnings.filterwarnings("ignore")
 
 # Set page configuration
 st.set_page_config(page_title="Hospital Demand & Capacity Modeling", layout="wide")
@@ -47,7 +51,7 @@ def login():
             st.session_state['logged_in'] = True
             st.session_state['username'] = username
             st.sidebar.success(f"Logged in as {username}")
-            st.rerun()
+            st.rerun()  # Corrected function name
         else:
             st.sidebar.error("Invalid username or password")
 
@@ -144,13 +148,13 @@ else:
             departments = data['Department'].unique()
             dept_selection = st.multiselect("Select Departments", departments, default=departments)
             date_range = st.date_input("Select Date Range", [data['Date'].min(), data['Date'].max()])
-    
+
             filtered_data = data[
                 (data['Department'].isin(dept_selection)) &
                 (data['Date'] >= pd.to_datetime(date_range[0])) &
                 (data['Date'] <= pd.to_datetime(date_range[1]))
             ]
-    
+
             # Interactive Plotly Chart
             fig = px.line(filtered_data, x='Date', y='Demand', color='Department', title='Demand Over Time')
             st.plotly_chart(fig, use_container_width=True)
@@ -166,74 +170,91 @@ else:
             model_types = ["ARIMA", "Exponential Smoothing", "Prophet"]
             selected_models = st.multiselect("Select Models to Compare", model_types, default=model_types)
             periods = st.number_input("Forecast Periods (Days)", min_value=1, max_value=365, value=30)
-    
+
             if st.button("Generate Forecast"):
                 demand_series = data.groupby('Date')['Demand'].sum().reset_index()
                 demand_series.columns = ['ds', 'y']
                 demand_series = demand_series.sort_values('ds')
                 results = {}
                 metrics = {}
-    
-                # ARIMA Model
-                if "ARIMA" in selected_models:
-                    arima_series = demand_series.set_index('ds')['y']
-                    model = ARIMA(arima_series, order=(1, 1, 1))
-                    model_fit = model.fit()
-                    forecast = model_fit.forecast(steps=periods)
-                    forecast = forecast.reset_index()
-                    forecast.columns = ['ds', 'y']
-                    results['ARIMA'] = forecast
-                    # Compute AIC and RMSE
-                    aic = model_fit.aic
-                    bic = model_fit.bic
-                    rmse = np.sqrt(mean_squared_error(arima_series[-periods:], model_fit.fittedvalues[-periods:]))
-                    metrics['ARIMA'] = {'AIC': aic, 'BIC': bic, 'RMSE': rmse}
-    
-                # Exponential Smoothing Model
-                if "Exponential Smoothing" in selected_models:
-                    es_series = demand_series.set_index('ds')['y']
-                    model = ExponentialSmoothing(es_series, trend='add', seasonal='add', seasonal_periods=7)
-                    model_fit = model.fit()
-                    forecast = model_fit.forecast(steps=periods)
-                    forecast = forecast.reset_index()
-                    forecast.columns = ['ds', 'y']
-                    results['Exponential Smoothing'] = forecast
-                    # Compute AIC and RMSE
-                    aic = model_fit.aic
-                    bic = model_fit.bic
-                    rmse = np.sqrt(mean_squared_error(es_series[-periods:], model_fit.fittedvalues[-periods:]))
-                    metrics['Exponential Smoothing'] = {'AIC': aic, 'BIC': bic, 'RMSE': rmse}
-    
-                # Prophet Model
-                if "Prophet" in selected_models:
-                    m = Prophet()
-                    m.fit(demand_series)
-                    future = m.make_future_dataframe(periods=periods)
-                    forecast = m.predict(future)
-                    results['Prophet'] = forecast[['ds', 'yhat']]
-                    # Compute RMSE (AIC and BIC are not available for Prophet)
-                    y_true = demand_series['y'][-periods:]
-                    y_pred = forecast['yhat'][:-periods]
-                    rmse = np.sqrt(mean_squared_error(y_true, y_pred))
-                    metrics['Prophet'] = {'AIC': None, 'BIC': None, 'RMSE': rmse}
-    
-                # Display Metrics
-                st.subheader("Model Evaluation Metrics")
-                metrics_df = pd.DataFrame(metrics).T
-                st.write(metrics_df)
-    
-                # Select Best Model based on AIC (lower is better)
-                best_model = min(metrics.items(), key=lambda x: x[1]['AIC'] if x[1]['AIC'] is not None else float('inf'))[0]
-                st.success(f"The best model based on AIC is: {best_model}")
-    
-                st.session_state['forecast'] = results[best_model]
-    
-                # Plot Forecast
-                st.subheader("Forecasted Demand")
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=demand_series['ds'], y=demand_series['y'], mode='lines', name='Historical Demand'))
-                fig.add_trace(go.Scatter(x=st.session_state['forecast']['ds'], y=st.session_state['forecast']['y'], mode='lines', name='Forecasted Demand'))
-                st.plotly_chart(fig, use_container_width=True)
+                model_errors = {}
+
+                # Loop through selected models
+                for model_name in selected_models:
+                    try:
+                        if model_name == "ARIMA":
+                            arima_series = demand_series.set_index('ds')['y']
+                            model = ARIMA(arima_series, order=(1, 1, 1))
+                            model_fit = model.fit()
+                            forecast = model_fit.forecast(steps=periods)
+                            forecast = forecast.reset_index()
+                            forecast.columns = ['ds', 'y']
+                            results['ARIMA'] = forecast
+                            # Compute AIC and RMSE
+                            aic = model_fit.aic
+                            bic = model_fit.bic
+                            rmse = np.sqrt(mean_squared_error(arima_series[-periods:], model_fit.fittedvalues[-periods:]))
+                            metrics['ARIMA'] = {'AIC': aic, 'BIC': bic, 'RMSE': rmse}
+
+                        elif model_name == "Exponential Smoothing":
+                            es_series = demand_series.set_index('ds')['y']
+                            # Check if data has enough points for seasonal periods
+                            if len(es_series) < 14:
+                                raise ValueError("Not enough data points for Exponential Smoothing with seasonal components.")
+                            model = ExponentialSmoothing(es_series, trend='add', seasonal='add', seasonal_periods=7)
+                            model_fit = model.fit()
+                            forecast = model_fit.forecast(steps=periods)
+                            forecast = forecast.reset_index()
+                            forecast.columns = ['ds', 'y']
+                            results['Exponential Smoothing'] = forecast
+                            # Compute AIC and RMSE
+                            aic = model_fit.aic
+                            bic = model_fit.bic
+                            rmse = np.sqrt(mean_squared_error(es_series[-periods:], model_fit.fittedvalues[-periods:]))
+                            metrics['Exponential Smoothing'] = {'AIC': aic, 'BIC': bic, 'RMSE': rmse}
+
+                        elif model_name == "Prophet":
+                            m = Prophet()
+                            m.fit(demand_series)
+                            future = m.make_future_dataframe(periods=periods)
+                            forecast = m.predict(future)
+                            results['Prophet'] = forecast[['ds', 'yhat']]
+                            # Compute RMSE (AIC and BIC are not available for Prophet)
+                            y_true = demand_series['y'][-periods:]
+                            y_pred = forecast['yhat'][:-periods]
+                            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+                            metrics['Prophet'] = {'AIC': None, 'BIC': None, 'RMSE': rmse}
+
+                    except Exception as e:
+                        model_errors[model_name] = str(e)
+                        st.warning(f"Model {model_name} encountered an error: {e}")
+
+                if metrics:
+                    # Display Metrics
+                    st.subheader("Model Evaluation Metrics")
+                    metrics_df = pd.DataFrame(metrics).T
+                    st.write(metrics_df)
+
+                    # Select Best Model based on AIC (lower is better)
+                    # Filter out models with None AIC
+                    valid_metrics = {k: v for k, v in metrics.items() if v['AIC'] is not None}
+                    if valid_metrics:
+                        best_model = min(valid_metrics.items(), key=lambda x: x[1]['AIC'])[0]
+                    else:
+                        # If all models have None AIC, fallback to RMSE
+                        best_model = min(metrics.items(), key=lambda x: x[1]['RMSE'])[0]
+                    st.success(f"The best model based on AIC is: {best_model}")
+
+                    st.session_state['forecast'] = results[best_model]
+
+                    # Plot Forecast
+                    st.subheader("Forecasted Demand")
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=demand_series['ds'], y=demand_series['y'], mode='lines', name='Historical Demand'))
+                    fig.add_trace(go.Scatter(x=st.session_state['forecast']['ds'], y=st.session_state['forecast']['y'], mode='lines', name='Forecasted Demand'))
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.error("All selected models failed to generate forecasts. Please check the data or select different models.")
             else:
                 st.info("Select models and click 'Generate Forecast'")
         else:
@@ -250,9 +271,9 @@ else:
             forecast_df.columns = ['Date', 'Forecasted Demand']
             forecast_df['Capacity'] = capacity
             forecast_df['Surplus/Deficit'] = forecast_df['Capacity'] - forecast_df['Forecasted Demand']
-    
+
             st.write(forecast_df)
-    
+
             # Plotting with Plotly
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=forecast_df['Date'], y=forecast_df['Forecasted Demand'], mode='lines', name='Forecasted Demand'))
@@ -312,3 +333,4 @@ else:
                 st.markdown(href, unsafe_allow_html=True)
         else:
             st.warning("Please complete forecasting and capacity planning first.")
+
