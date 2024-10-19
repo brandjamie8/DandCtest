@@ -3,7 +3,7 @@ pandas
 plotly
 statsmodels
 prophet
-sklearn
+scikit-learn
 bcrypt
 pyodbc
 sqlalchemy
